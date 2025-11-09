@@ -41,115 +41,155 @@
   </style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="map"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const img = new Image();
-    img.src = 'map.png'; // 👉 имя твоего файла карты
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    img.onload = function() {
-      const imageWidth = img.width;
-      const imageHeight = img.height;
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
 
-      // === Создаем карту ===
-      const map = L.map('map', {
-        crs: L.CRS.Simple,
-        minZoom: -1,
-        maxZoom: 3
-      });
+<script>
+  // ===== 1️⃣ Конфигурация Firebase =====
+  const firebaseConfig = {
+    apiKey: "API_KEY", // оставь как в консоли Firebase
+    authDomain: "morrowind-map-1b449.firebaseapp.com",
+    databaseURL: "https://morrowind-map-1b449-default-rtdb.europe-west1.firebasedatabase.app/",
+    projectId: "morrowind-map-1b449",
+    storageBucket: "morrowind-map-1b449.appspot.com",
+    messagingSenderId: "SENDER_ID", // оставь как в консоли
+    appId: "APP_ID" // оставь как в консоли
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-      const bounds = [[0, 0], [imageHeight, imageWidth]];
-      L.imageOverlay('map.png', bounds).addTo(map);
-      map.fitBounds(bounds);
+  // ===== 2️⃣ Настройка карты =====
+  const img = new Image();
+  img.src = 'map.png'; // имя файла карты
 
-      let markers = [];
+  img.onload = function() {
+    const imageWidth = img.width;
+    const imageHeight = img.height;
 
-      // === Сохранение ===
-      function saveMarkers() {
-        const data = markers.map(m => ({
-          lat: m.getLatLng().lat,
-          lng: m.getLatLng().lng,
-          text: m.options.text,
-          url: m.options.url
-        }));
-        localStorage.setItem('markers', JSON.stringify(data));
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -1,
+      maxZoom: 3
+    });
+
+    const bounds = [[0, 0], [imageHeight, imageWidth]];
+    L.imageOverlay('map.png', bounds).addTo(map);
+    map.fitBounds(bounds);
+
+    let markers = [];
+
+    // ===== 3️⃣ Функция добавления метки =====
+    function addMarker(lat, lng, text, url, saveToFirebase = true) {
+      const marker = L.marker([lat, lng], { text, url }).addTo(map);
+      marker.bindPopup(createPopupContent(marker));
+      markers.push(marker);
+
+      if (saveToFirebase) {
+        const newPoint = db.ref('points').push();
+        newPoint.set({ lat, lng, text, url });
+      }
+    }
+
+    // ===== 4️⃣ Popup содержимое =====
+    function createPopupContent(marker) {
+      const div = document.createElement('div');
+      const name = document.createElement('div');
+      name.innerHTML = `<strong>${marker.options.text}</strong>`;
+      div.appendChild(name);
+
+      if (marker.options.url) {
+        const link = document.createElement('a');
+        link.href = marker.options.url;
+        link.target = '_blank';
+        link.textContent = 'Открыть ссылку 🔗';
+        link.style.display = 'block';
+        link.style.marginTop = '5px';
+        div.appendChild(link);
       }
 
-      // === Загрузка ===
-      function loadMarkers() {
-        const saved = localStorage.getItem('markers');
-        if (!saved) return;
-        const data = JSON.parse(saved);
-        data.forEach(m => addMarker(m.lat, m.lng, m.text, m.url, false));
-      }
+      const buttons = document.createElement('div');
+      buttons.className = 'popup-buttons';
 
-      // === Добавление метки ===
-      function addMarker(lat, lng, text, url, save = true) {
-        const marker = L.marker([lat, lng], { text, url }).addTo(map);
-        marker.bindPopup(createPopupContent(marker));
-        markers.push(marker);
-        if (save) saveMarkers();
-      }
-
-      // === Popup содержимое ===
-      function createPopupContent(marker) {
-        const div = document.createElement('div');
-        const name = document.createElement('div');
-        name.innerHTML = `<strong>${marker.options.text}</strong>`;
-        div.appendChild(name);
-
-        if (marker.options.url) {
-          const link = document.createElement('a');
-          link.href = marker.options.url;
-          link.target = '_blank';
-          link.textContent = 'Открыть ссылку 🔗';
-          link.style.display = 'block';
-          link.style.marginTop = '5px';
-          div.appendChild(link);
+      const editBtn = document.createElement('button');
+      editBtn.textContent = '✏️ Изменить';
+      editBtn.onclick = () => {
+        const newText = prompt('Новое название точки:', marker.options.text);
+        const newUrl = prompt('Новая ссылка (можно оставить пустой):', marker.options.url || '');
+        if (newText !== null) {
+          marker.options.text = newText;
+          marker.options.url = newUrl;
+          marker.setPopupContent(createPopupContent(marker));
+          // Обновляем Firebase
+          db.ref('points').orderByChild('lat').equalTo(marker.getLatLng().lat).once('value', snap => {
+            snap.forEach(child => {
+              if (child.val().lng === marker.getLatLng().lng) {
+                child.ref.update({ text: newText, url: newUrl });
+              }
+            });
+          });
         }
+      };
 
-        const buttons = document.createElement('div');
-        buttons.className = 'popup-buttons';
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = '🗑️ Удалить';
+      deleteBtn.onclick = () => {
+        map.removeLayer(marker);
+        markers = markers.filter(m => m !== marker);
+        // Удаляем из Firebase
+        db.ref('points').orderByChild('lat').equalTo(marker.getLatLng().lat).once('value', snap => {
+          snap.forEach(child => {
+            if (child.val().lng === marker.getLatLng().lng) child.ref.remove();
+          });
+        });
+      };
 
-        const editBtn = document.createElement('button');
-        editBtn.textContent = '✏️ Изменить';
-        editBtn.onclick = () => {
-          const newText = prompt('Новое название точки:', marker.options.text);
-          const newUrl = prompt('Новая ссылка (можно оставить пустой):', marker.options.url || '');
-          if (newText !== null) {
-            marker.options.text = newText;
-            marker.options.url = newUrl;
-            marker.setPopupContent(createPopupContent(marker));
-            saveMarkers();
-          }
-        };
+      buttons.appendChild(editBtn);
+      buttons.appendChild(deleteBtn);
+      div.appendChild(buttons);
 
-        const deleteBtn = document.createElement('button');
-        deleteBtn.textContent = '🗑️ Удалить';
-        deleteBtn.onclick = () => {
-          map.removeLayer(marker);
-          markers = markers.filter(m => m !== marker);
-          saveMarkers();
-        };
+      return div;
+    }
 
-        buttons.appendChild(editBtn);
-        buttons.appendChild(deleteBtn);
-        div.appendChild(buttons);
+    // ===== 5️⃣ Добавление метки по клику =====
+    map.on('click', e => {
+      const name = prompt('Введите название точки:');
+      if (!name) return;
+      const url = prompt('Введите ссылку (опционально):');
+      addMarker(e.latlng.lat, e.latlng.lng, name, url || '', true);
+    });
 
-        return div;
+    // ===== 6️⃣ Подгрузка всех точек из Firebase =====
+    db.ref('points').on('child_added', snapshot => {
+      const point = snapshot.val();
+      addMarker(point.lat, point.lng, point.text, point.url, false);
+    });
+
+    // ===== 7️⃣ Обновление и удаление точек =====
+    db.ref('points').on('child_changed', snapshot => {
+      const updated = snapshot.val();
+      const marker = markers.find(m => m.getLatLng().lat === updated.lat && m.getLatLng().lng === updated.lng);
+      if (marker) {
+        marker.options.text = updated.text;
+        marker.options.url = updated.url;
+        marker.setPopupContent(createPopupContent(marker));
       }
+    });
 
-      // === При клике по карте — создать метку ===
-      map.on('click', e => {
-        const name = prompt('Введите название точки:');
-        if (!name) return;
-        const url = prompt('Введите ссылку (опционально):');
-        addMarker(e.latlng.lat, e.latlng.lng, name, url || '');
-      });
-
-      loadMarkers();
-    };
-  </script>
+    db.ref('points').on('child_removed', snapshot => {
+      const removed = snapshot.val();
+      const marker = markers.find(m => m.getLatLng().lat === removed.lat && m.getLatLng().lng === removed.lng);
+      if (marker) {
+        map.removeLayer(marker);
+        markers = markers.filter(m => m !== marker);
+      }
+    });
+  };
+</script>
 </body>
 </html>
