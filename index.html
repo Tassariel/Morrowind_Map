@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Интерактивная карта игры</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+    .popup-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 5px;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background-color: #eee;
+    }
+    button:hover {
+      background-color: #ccc;
+    }
+    a {
+      color: #0077cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const img = new Image();
+    img.src = 'map.png'; // 👉 имя твоего файла карты
+
+    img.onload = function() {
+      const imageWidth = img.width;
+      const imageHeight = img.height;
+
+      // === Создаем карту ===
+      const map = L.map('map', {
+        crs: L.CRS.Simple,
+        minZoom: -1,
+        maxZoom: 3
+      });
+
+      const bounds = [[0, 0], [imageHeight, imageWidth]];
+      L.imageOverlay('map.png', bounds).addTo(map);
+      map.fitBounds(bounds);
+
+      let markers = [];
+
+      // === Сохранение ===
+      function saveMarkers() {
+        const data = markers.map(m => ({
+          lat: m.getLatLng().lat,
+          lng: m.getLatLng().lng,
+          text: m.options.text,
+          url: m.options.url
+        }));
+        localStorage.setItem('markers', JSON.stringify(data));
+      }
+
+      // === Загрузка ===
+      function loadMarkers() {
+        const saved = localStorage.getItem('markers');
+        if (!saved) return;
+        const data = JSON.parse(saved);
+        data.forEach(m => addMarker(m.lat, m.lng, m.text, m.url, false));
+      }
+
+      // === Добавление метки ===
+      function addMarker(lat, lng, text, url, save = true) {
+        const marker = L.marker([lat, lng], { text, url }).addTo(map);
+        marker.bindPopup(createPopupContent(marker));
+        markers.push(marker);
+        if (save) saveMarkers();
+      }
+
+      // === Popup содержимое ===
+      function createPopupContent(marker) {
+        const div = document.createElement('div');
+        const name = document.createElement('div');
+        name.innerHTML = `<strong>${marker.options.text}</strong>`;
+        div.appendChild(name);
+
+        if (marker.options.url) {
+          const link = document.createElement('a');
+          link.href = marker.options.url;
+          link.target = '_blank';
+          link.textContent = 'Открыть ссылку 🔗';
+          link.style.display = 'block';
+          link.style.marginTop = '5px';
+          div.appendChild(link);
+        }
+
+        const buttons = document.createElement('div');
+        buttons.className = 'popup-buttons';
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '✏️ Изменить';
+        editBtn.onclick = () => {
+          const newText = prompt('Новое название точки:', marker.options.text);
+          const newUrl = prompt('Новая ссылка (можно оставить пустой):', marker.options.url || '');
+          if (newText !== null) {
+            marker.options.text = newText;
+            marker.options.url = newUrl;
+            marker.setPopupContent(createPopupContent(marker));
+            saveMarkers();
+          }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '🗑️ Удалить';
+        deleteBtn.onclick = () => {
+          map.removeLayer(marker);
+          markers = markers.filter(m => m !== marker);
+          saveMarkers();
+        };
+
+        buttons.appendChild(editBtn);
+        buttons.appendChild(deleteBtn);
+        div.appendChild(buttons);
+
+        return div;
+      }
+
+      // === При клике по карте — создать метку ===
+      map.on('click', e => {
+        const name = prompt('Введите название точки:');
+        if (!name) return;
+        const url = prompt('Введите ссылку (опционально):');
+        addMarker(e.latlng.lat, e.latlng.lng, name, url || '');
+      });
+
+      loadMarkers();
+    };
+  </script>
+</body>
+</html>
