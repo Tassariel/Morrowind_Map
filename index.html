@@ -1,23 +1,25 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <title>Интерактивная карта игры</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <style>
-    html, body { margin:0; height:100%; }
-    #map { width:100%; height:100%; background:#000; }
-    .popup-buttons { display:flex; flex-direction:column; gap:4px; margin-top:5px; }
-    button { cursor:pointer; border:none; padding:4px 8px; border-radius:4px; background-color:#eee; }
-    button:hover { background-color:#ccc; }
-    a { color:#0077cc; text-decoration:none; }
-    a:hover { text-decoration:underline; }
-  </style>
+<meta charset="UTF-8">
+<title>Интерактивная карта игры</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  html, body { margin:0; height:100%; }
+  #map { width:100%; height:100%; background:#000; }
+  .popup-buttons { display:flex; flex-direction:column; gap:4px; margin-top:5px; }
+  button { cursor:pointer; border:none; padding:4px 8px; border-radius:4px; background-color:#eee; }
+  button:hover { background-color:#ccc; }
+  a { color:#0077cc; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+</style>
 </head>
 <body>
 <div id="map"></div>
 
+<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Firebase compat -->
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
@@ -35,18 +37,41 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // ===== Загружаем картинку, чтобы взять её реальные размеры =====
+  // ===== Загружаем картинку для размеров =====
   const img = new Image();
-  img.src = 'map.png'; // файл карты
+  img.src = 'map.png';
   img.onload = function() {
     const imageWidth = img.width;
     const imageHeight = img.height;
 
-    // ===== Leaflet =====
+    // ===== Создаем карту =====
     const map = L.map('map', { crs:L.CRS.Simple, minZoom:-1, maxZoom:3 });
-    const bounds = [[0,0],[imageHeight,imageWidth]];
-    L.imageOverlay('map.png', bounds).addTo(map);
-    map.fitBounds(bounds);
+
+    // Функция для вычисления bounds с сохранением пропорций под окно
+    function resizeMap() {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const ratio = imageWidth / imageHeight;
+      let displayWidth, displayHeight;
+
+      if (w / h > ratio) {
+        // окно шире → подгоняем по высоте
+        displayHeight = imageHeight;
+        displayWidth = imageHeight * ratio;
+      } else {
+        // окно выше → подгоняем по ширине
+        displayWidth = imageWidth;
+        displayHeight = imageWidth / ratio;
+      }
+
+      const bounds = [[0,0],[displayHeight,displayWidth]];
+      if(window.imageLayer) map.removeLayer(window.imageLayer);
+      window.imageLayer = L.imageOverlay('map.png', bounds).addTo(map);
+      map.fitBounds(bounds);
+    }
+
+    resizeMap();
+    window.addEventListener('resize', resizeMap);
 
     let markers = [];
 
@@ -75,7 +100,6 @@
           marker.options.text=newText;
           marker.options.url=newUrl;
           marker.setPopupContent(createPopupContent(marker));
-
           // Firebase update
           db.ref('points').orderByChild('lat').equalTo(marker.getLatLng().lat).once('value', snap=>{
             snap.forEach(child=>{
@@ -113,6 +137,7 @@
       }
     }
 
+    // Клик по карте → новая метка
     map.on('click', e=>{
       const name=prompt('Введите название точки:');
       if(!name) return;
@@ -120,7 +145,7 @@
       addMarker(e.latlng.lat,e.latlng.lng,name,url||'',true);
     });
 
-    // ===== Загрузка меток из Firebase =====
+    // Загрузка меток из Firebase
     db.ref('points').on('child_added', snapshot=>{
       const p=snapshot.val();
       addMarker(p.lat,p.lng,p.text,p.url,false);
