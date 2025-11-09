@@ -36,9 +36,10 @@
   <label for="categoryFilter">Категория:</label>
   <select id="categoryFilter">
     <option value="all">Все</option>
-    <option value="Город">Города</option>
-    <option value="Локация">Локации</option>
-    <option value="Квест">Квесты</option>
+    <option value="Данжи">Данжи</option>
+    <option value="Порталы">Порталы</option>
+    <option value="Тыквенные поля (ивент)">Тыквенные поля (ивент)</option>
+    <option value="Другое">Другое</option>
   </select>
 </div>
 
@@ -119,7 +120,10 @@
       editBtn.onclick=()=>{
         const newText=prompt('Новое название точки:', marker.options.text);
         const newUrl=prompt('Новая ссылка (можно оставить пустой):', marker.options.url||'');
-        const newCategory=prompt('Новая категория:', marker.options.category||'');
+        const newCategory=prompt(
+          'Выберите категорию (введите одно из: Данжи, Порталы, Тыквенные поля (ивент), Другое):',
+          marker.options.category || ''
+        );
         if(newText!==null){
           marker.options.text=newText;
           marker.options.url=newUrl;
@@ -180,7 +184,7 @@
       const name=prompt('Введите название точки:');
       if(!name) return;
       const url=prompt('Введите ссылку (опционально):');
-      const category=prompt('Введите категорию (например: Город, Локация, Квест):','');
+      const category=prompt('Введите категорию (Данжи / Порталы / Тыквенные поля (ивент) / Другое):','');
       addMarker(e.latlng.lat,e.latlng.lng,name,url||'',category||'',true);
     });
 
