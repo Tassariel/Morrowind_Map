@@ -66,11 +66,12 @@
 
   // ===== 2️⃣ Настройка карты =====
   const img = new Image();
-  img.src = 'карта.png'; // имя файла карты
+  img.src = 'map.png'; // имя файла карты
 
   img.onload = function() {
     const imageWidth = img.width;
     const imageHeight = img.height;
+    console.log('Размер карты:', img.width, img.height); 
 
     const map = L.map('map', {
       crs: L.CRS.Simple,
@@ -193,4 +194,5 @@
 </script>
 </body>
 </html>
+
 
