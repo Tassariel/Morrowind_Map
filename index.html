@@ -120,16 +120,12 @@
       editBtn.onclick=()=>{
         const newText=prompt('Новое название точки:', marker.options.text);
         const newUrl=prompt('Новая ссылка (можно оставить пустой):', marker.options.url||'');
-        const newCategory=prompt(
-          'Выберите категорию (введите одно из: Данжи, Порталы, Тыквенные поля (ивент), Другое):',
-          marker.options.category || ''
-        );
+        const newCategory=prompt('Новая категория (Данжи, Порталы, Тыквенные поля (ивент), Другое):', marker.options.category||'');
         if(newText!==null){
           marker.options.text=newText;
           marker.options.url=newUrl;
           marker.options.category=newCategory;
           marker.setPopupContent(createPopupContent(marker));
-          // Firebase update
           db.ref('points').orderByChild('lat').equalTo(marker.getLatLng().lat).once('value', snap=>{
             snap.forEach(child=>{
               if(child.val().lng===marker.getLatLng().lng) child.ref.update({text:newText,url:newUrl,category:newCategory});
@@ -179,16 +175,16 @@
       });
     });
 
-    // Клик по карте → новая метка
+    // === Добавление метки ===
     map.on('click', e=>{
       const name=prompt('Введите название точки:');
       if(!name) return;
       const url=prompt('Введите ссылку (опционально):');
-      const category=prompt('Введите категорию (Данжи / Порталы / Тыквенные поля (ивент) / Другое):','');
+      const category=prompt('Введите категорию (Данжи, Порталы, Тыквенные поля (ивент), Другое):','');
       addMarker(e.latlng.lat,e.latlng.lng,name,url||'',category||'',true);
     });
 
-    // Загрузка меток из Firebase
+    // === Синхронизация с Firebase ===
     db.ref('points').on('child_added', snapshot=>{
       const p=snapshot.val();
       addMarker(p.lat,p.lng,p.text,p.url,p.category,false);
