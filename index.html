@@ -27,6 +27,29 @@
   #categoryFilter {
     margin-left: 5px;
   }
+
+  /* === ФОРМА ДОБАВЛЕНИЯ === */
+  .add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .add-form input, .add-form select {
+    padding: 4px;
+    border-radius: 4px;
+    border: 1px solid #aaa;
+  }
+  .add-form button {
+    background: #0078ff;
+    color: white;
+    border: none;
+    padding: 6px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .add-form button:hover {
+    background: #005fcc;
+  }
 </style>
 </head>
 <body>
@@ -65,7 +88,7 @@
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
-  // ===== Загружаем картинку для размеров =====
+  // ===== Загружаем картинку =====
   const img = new Image();
   img.src = 'map.png';
   img.onload = function() {
@@ -75,20 +98,7 @@
     const map = L.map('map', { crs:L.CRS.Simple, minZoom:-1, maxZoom:3 });
 
     function resizeMap() {
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-      const ratio = imageWidth / imageHeight;
-      let displayWidth, displayHeight;
-
-      if (w / h > ratio) {
-        displayHeight = imageHeight;
-        displayWidth = imageHeight * ratio;
-      } else {
-        displayWidth = imageWidth;
-        displayHeight = imageWidth / ratio;
-      }
-
-      const bounds = [[0,0],[displayHeight,displayWidth]];
+      const bounds = [[0,0],[imageHeight,imageWidth]];
       if(window.imageLayer) map.removeLayer(window.imageLayer);
       window.imageLayer = L.imageOverlay('map.png', bounds).addTo(map);
       map.fitBounds(bounds);
@@ -175,16 +185,41 @@
       });
     });
 
-    // === Добавление метки ===
+    // === Добавление метки через форму ===
     map.on('click', e=>{
-      const name=prompt('Введите название точки:');
-      if(!name) return;
-      const url=prompt('Введите ссылку (опционально):');
-      const category=prompt('Введите категорию (Данжи, Порталы, Тыквенные поля (ивент), Другое):','');
-      addMarker(e.latlng.lat,e.latlng.lng,name,url||'',category||'',true);
+      const form = document.createElement('div');
+      form.className = 'add-form';
+      form.innerHTML = `
+        <label>Название:</label>
+        <input id="nameInput" type="text" placeholder="Название точки"/>
+        <label>Ссылка (опционально):</label>
+        <input id="urlInput" type="text" placeholder="https://..."/>
+        <label>Категория:</label>
+        <select id="categoryInput">
+          <option value="Данжи">Данжи</option>
+          <option value="Порталы">Порталы</option>
+          <option value="Тыквенные поля (ивент)">Тыквенные поля (ивент)</option>
+          <option value="Другое">Другое</option>
+        </select>
+        <button id="addBtn">Добавить</button>
+      `;
+
+      const popup = L.popup()
+        .setLatLng(e.latlng)
+        .setContent(form)
+        .openOn(map);
+
+      form.querySelector('#addBtn').addEventListener('click', () => {
+        const name = form.querySelector('#nameInput').value.trim();
+        if (!name) return alert('Введите название!');
+        const url = form.querySelector('#urlInput').value.trim();
+        const category = form.querySelector('#categoryInput').value;
+        addMarker(e.latlng.lat, e.latlng.lng, name, url, category, true);
+        map.closePopup();
+      });
     });
 
-    // === Синхронизация с Firebase ===
+    // === Firebase sync ===
     db.ref('points').on('child_added', snapshot=>{
       const p=snapshot.val();
       addMarker(p.lat,p.lng,p.text,p.url,p.category,false);
