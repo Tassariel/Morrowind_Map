@@ -46,40 +46,33 @@
 <!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database.js"></script>
+<!-- Firebase (compat) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 
 <script>
   // ===== 1️⃣ Конфигурация Firebase =====
   const firebaseConfig = {
-    apiKey: "API_KEY", // оставь как в консоли Firebase
+    apiKey: "API_KEY", // вставь свои ключи из консоли Firebase
     authDomain: "morrowind-map-1b449.firebaseapp.com",
     databaseURL: "https://morrowind-map-1b449-default-rtdb.europe-west1.firebasedatabase.app/",
     projectId: "morrowind-map-1b449",
     storageBucket: "morrowind-map-1b449.appspot.com",
-    messagingSenderId: "SENDER_ID", // оставь как в консоли
-    appId: "APP_ID" // оставь как в консоли
+    messagingSenderId: "SENDER_ID",
+    appId: "APP_ID"
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
 
   // ===== 2️⃣ Настройка карты =====
   const img = new Image();
-  img.src = 'map.png'; // имя файла карты
+  img.src = 'map.png';
 
   img.onload = function() {
-    const imageWidth = img.width;
-    const imageHeight = img.height;
-    console.log('Размер карты:', img.width, img.height); 
+    console.log('Размер карты:', img.width, img.height);
+    const map = L.map('map', { crs: L.CRS.Simple, minZoom: -1, maxZoom: 3 });
 
-    const map = L.map('map', {
-      crs: L.CRS.Simple,
-      minZoom: -1,
-      maxZoom: 3
-    });
-
-    const bounds = [[0, 0], [imageHeight, imageWidth]];
+    const bounds = [[0,0],[img.height,img.width]];
     L.imageOverlay('map.png', bounds).addTo(map);
     map.fitBounds(bounds);
 
@@ -171,7 +164,6 @@
       addMarker(point.lat, point.lng, point.text, point.url, false);
     });
 
-    // ===== 7️⃣ Обновление и удаление точек =====
     db.ref('points').on('child_changed', snapshot => {
       const updated = snapshot.val();
       const marker = markers.find(m => m.getLatLng().lat === updated.lat && m.getLatLng().lng === updated.lng);
@@ -194,5 +186,3 @@
 </script>
 </body>
 </html>
-
-
