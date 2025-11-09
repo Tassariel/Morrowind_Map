@@ -56,6 +56,7 @@
     <option value="Порталы">Порталы</option>
     <option value="Тыквенные поля (ивент)">Тыквенные поля (ивент)</option>
     <option value="Другое">Другое</option>
+    <option value="Артефакты">Артефакты</option>
   </select>
 </div>
 
@@ -85,7 +86,6 @@ img.onload = function() {
   const imageHeight = img.height;
 
   const map = L.map('map', { crs:L.CRS.Simple, minZoom:-1, maxZoom:3 });
-
   const bounds = [[0,0],[imageHeight,imageWidth]];
   window.imageLayer = L.imageOverlay('map.png', bounds).addTo(map);
   map.fitBounds(bounds);
@@ -96,8 +96,8 @@ img.onload = function() {
     const div = document.createElement('div');
     div.innerHTML = `<strong>${marker.options.text}</strong><br><em>${marker.options.category || 'Без категории'}</em>`;
     if(marker.options.url){
-      const link=document.createElement('a');
-      link.href=marker.options.url;
+      const link = document.createElement('a');
+      link.href = marker.options.url;
       link.target='_blank';
       link.textContent='Открыть ссылку 🔗';
       link.style.display='block';
@@ -105,14 +105,14 @@ img.onload = function() {
       div.appendChild(link);
     }
 
-    const buttons=document.createElement('div');
-    buttons.className='popup-buttons';
+    const buttons = document.createElement('div');
+    buttons.className = 'popup-buttons';
 
-    const editBtn=document.createElement('button');
-    editBtn.textContent='✏️ Изменить';
-    editBtn.onclick=()=>{
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏️ Изменить';
+    editBtn.onclick = () => {
       const form = document.createElement('div');
-      form.className='add-form';
+      form.className = 'add-form';
       form.innerHTML = `
         <label>Название:</label>
         <input type="text" id="editName" value="${marker.options.text}"/>
@@ -124,15 +124,13 @@ img.onload = function() {
           <option value="Порталы">Порталы</option>
           <option value="Тыквенные поля (ивент)">Тыквенные поля (ивент)</option>
           <option value="Другое">Другое</option>
+          <option value="Артефакты">Артефакты</option>
         </select>
         <button id="saveBtn">Сохранить</button>
       `;
       form.querySelector('#editCategory').value = marker.options.category || 'Другое';
 
-      const popup = L.popup()
-        .setLatLng(marker.getLatLng())
-        .setContent(form)
-        .openOn(map);
+      const popup = L.popup().setLatLng(marker.getLatLng()).setContent(form).openOn(map);
 
       form.querySelector('#saveBtn').addEventListener('click', ()=>{
         const newText = form.querySelector('#editName').value.trim();
@@ -157,11 +155,11 @@ img.onload = function() {
       });
     };
 
-    const delBtn=document.createElement('button');
-    delBtn.textContent='🗑️ Удалить';
-    delBtn.onclick=()=>{
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️ Удалить';
+    delBtn.onclick = () => {
       map.removeLayer(marker);
-      markers=markers.filter(m=>m!==marker);
+      markers = markers.filter(m => m !== marker);
       db.ref('points').orderByChild('lat').equalTo(marker.getLatLng().lat).once('value', snap=>{
         snap.forEach(child=>{
           if(child.val().lng===marker.getLatLng().lng) child.ref.remove();
@@ -176,15 +174,16 @@ img.onload = function() {
   }
 
   function addMarker(lat,lng,text,url,category,save=true){
-    const marker=L.marker([lat,lng],{text,url,category}).addTo(map);
+    const marker = L.marker([lat,lng], {text,url,category}).addTo(map);
     marker.bindPopup(createPopupContent(marker));
     markers.push(marker);
     if(save){
-      const newPoint=db.ref('points').push();
+      const newPoint = db.ref('points').push();
       newPoint.set({lat,lng,text,url,category});
     }
   }
 
+  // === Фильтр по категориям ===
   const categoryFilter = document.getElementById('categoryFilter');
   categoryFilter.addEventListener('change', () => {
     const selected = categoryFilter.value;
@@ -197,6 +196,7 @@ img.onload = function() {
     });
   });
 
+  // Клик по карте → форма добавления
   map.on('click', e=>{
     const form = document.createElement('div');
     form.className='add-form';
@@ -209,37 +209,40 @@ img.onload = function() {
         <option value="Порталы">Порталы</option>
         <option value="Тыквенные поля (ивент)">Тыквенные поля (ивент)</option>
         <option value="Другое">Другое</option>
+        <option value="Артефакты">Артефакты</option>
       </select>
       <button id="addBtn">Добавить</button>
     `;
     const popup = L.popup().setLatLng(e.latlng).setContent(form).openOn(map);
+
     form.querySelector('#addBtn').addEventListener('click', ()=>{
-      const name=form.querySelector('#nameInput').value.trim();
+      const name = form.querySelector('#nameInput').value.trim();
       if(!name) return alert('Введите название!');
-      const url=form.querySelector('#urlInput').value.trim();
-      const category=form.querySelector('#categoryInput').value;
+      const url = form.querySelector('#urlInput').value.trim();
+      const category = form.querySelector('#categoryInput').value;
       addMarker(e.latlng.lat,e.latlng.lng,name,url,category,true);
       map.closePopup();
     });
   });
 
+  // === Firebase синхронизация ===
   db.ref('points').on('child_added', snapshot=>{
-    const p=snapshot.val();
+    const p = snapshot.val();
     addMarker(p.lat,p.lng,p.text,p.url,p.category,false);
   });
   db.ref('points').on('child_changed', snapshot=>{
-    const p=snapshot.val();
-    const m=markers.find(m=>m.getLatLng().lat===p.lat && m.getLatLng().lng===p.lng);
+    const p = snapshot.val();
+    const m = markers.find(m => m.getLatLng().lat===p.lat && m.getLatLng().lng===p.lng);
     if(m){ 
-      m.options.text=p.text; 
-      m.options.url=p.url; 
-      m.options.category=p.category;
+      m.options.text = p.text; 
+      m.options.url = p.url; 
+      m.options.category = p.category;
       m.setPopupContent(createPopupContent(m)); 
     }
   });
   db.ref('points').on('child_removed', snapshot=>{
-    const p=snapshot.val();
-    const m=markers.find(m=>m.getLatLng().lat===p.lat && m.getLatLng().lng===p.lng);
+    const p = snapshot.val();
+    const m = markers.find(m => m.getLatLng().lat===p.lat && m.getLatLng().lng===p.lng);
     if(m){ map.removeLayer(m); markers=markers.filter(x=>x!==m); }
   });
 };
